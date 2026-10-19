@@ -26,9 +26,9 @@ import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { Suspense, useEffect, useState, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
+import { useAuth } from '../../context/AuthContext';
 import { useMeQuery } from '../../store/api';
-import { loggedOut, userRefreshed } from '../../store/authSlice';
-import { useAppDispatch, useAppSelector, useCurrentUser } from '../../store/hooks';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { themeModeChanged } from '../../store/uiSlice';
 import { LoadingState } from '../Feedback';
 import Brand from './Brand';
@@ -63,7 +63,7 @@ const initials = (name: string) =>
 
 export default function AppLayout() {
   const dispatch = useAppDispatch();
-  const user = useCurrentUser();
+  const { user, logout, refreshUser } = useAuth();
   const themeMode = useAppSelector((state) => state.ui.themeMode);
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -72,8 +72,8 @@ export default function AppLayout() {
   // Re-validate the stored session and pick up any profile/role changes.
   const { data: freshUser } = useMeQuery();
   useEffect(() => {
-    if (freshUser) dispatch(userRefreshed(freshUser));
-  }, [freshUser, dispatch]);
+    if (freshUser) refreshUser(freshUser);
+  }, [freshUser, refreshUser]);
 
   // Close the mobile drawer after navigating.
   useEffect(() => setMobileOpen(false), [location.pathname]);
@@ -180,7 +180,7 @@ export default function AppLayout() {
             <MenuItem
               onClick={() => {
                 setMenuAnchor(null);
-                dispatch(loggedOut());
+                logout();
               }}
             >
               <ListItemIcon>

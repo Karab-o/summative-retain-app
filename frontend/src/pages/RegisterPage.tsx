@@ -12,9 +12,7 @@ import { getErrorMessage, getFieldErrors } from '../api/client';
 import AuthLayout from '../components/layout/AuthLayout';
 import { homePathFor } from '../components/layout/RouteGuards';
 import PasswordField from '../components/PasswordField';
-import { useRegisterMutation } from '../store/api';
-import { credentialsReceived } from '../store/authSlice';
-import { useAppDispatch } from '../store/hooks';
+import { useAuth } from '../context/AuthContext';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -37,13 +35,14 @@ function validate(form: FormState) {
 }
 
 export default function RegisterPage() {
-  const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { enqueueSnackbar } = useSnackbar();
-  const [register, { isLoading, error }] = useRegisterMutation();
+  const { register } = useAuth();
 
   const [form, setForm] = useState<FormState>({ name: '', email: '', password: '', confirmPassword: '' });
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const field = (key: keyof FormState) => ({
     value: form[key],
@@ -58,13 +57,16 @@ export default function RegisterPage() {
     setErrors(found);
     if (Object.keys(found).length > 0) return;
 
+    setSubmitting(true);
+    setError(null);
     try {
-      const result = await register({ name: form.name.trim(), email: form.email.trim(), password: form.password }).unwrap();
-      dispatch(credentialsReceived(result));
-      enqueueSnackbar(`Welcome to Retain, ${result.user.name.split(' ')[0]}!`, { variant: 'success' });
-      navigate(homePathFor(result.user.role), { replace: true });
+      const user = await register({ name: form.name.trim(), email: form.email.trim(), password: form.password });
+      enqueueSnackbar(`Welcome to Retain, ${user.name.split(' ')[0]}!`, { variant: 'success' });
+      navigate(homePathFor(user.role), { replace: true });
     } catch (err) {
       setErrors(getFieldErrors(err));
+      setError(getErrorMessage(err, 'Sign up failed'));
+      setSubmitting(false);
     }
   }
 
@@ -72,7 +74,7 @@ export default function RegisterPage() {
     <AuthLayout title="Create your account" subtitle="Start tracking expenses and set your first budget.">
       <Box component="form" onSubmit={handleSubmit} noValidate>
         <Stack spacing={2}>
-          {error && <Alert severity="error">{getErrorMessage(error, 'Sign up failed')}</Alert>}
+          {error && <Alert severity="error">{error}</Alert>}
           <TextField label="Full name" autoComplete="name" autoFocus required {...field('name')} />
           <TextField label="Email" type="email" autoComplete="email" required {...field('email')} />
           <PasswordField
@@ -83,7 +85,7 @@ export default function RegisterPage() {
             helperText={errors.password ?? 'At least 6 characters'}
           />
           <PasswordField label="Confirm password" autoComplete="new-password" required {...field('confirmPassword')} />
-          <Button type="submit" variant="contained" size="large" loading={isLoading}>
+          <Button type="submit" variant="contained" size="large" loading={submitting}>
             Create account
           </Button>
         </Stack>

@@ -33,11 +33,11 @@ import MonthSwitcher from '../components/MonthSwitcher';
 import PageHeader from '../components/PageHeader';
 import StatCard from '../components/StatCard';
 import { useGetDashboardQuery } from '../store/api';
-import { useCurrentUser } from '../store/hooks';
+import { useAuth } from '../context/AuthContext';
 import { currentMonthKey, formatDate, formatMoney, formatMonth, formatPercent, paymentLabel } from '../utils/format';
 
 export default function DashboardPage() {
-  const user = useCurrentUser();
+  const { user } = useAuth();
   const thisMonth = currentMonthKey();
   const [month, setMonth] = useState(thisMonth);
   const [expenseOpen, setExpenseOpen] = useState(false);
