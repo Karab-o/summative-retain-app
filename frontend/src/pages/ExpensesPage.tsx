@@ -28,10 +28,9 @@ import TextField from '@mui/material/TextField';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useSnackbar } from 'notistack';
-import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router';
+import { useEffect, useState } from 'react';
 import { getErrorMessage } from '../api/client';
-import type { Expense, ExpenseQuery, ExpenseSortField, PaymentMethod, SortOrder } from '../api/types';
+import type { Expense, ExpenseSortField, PaymentMethod } from '../api/types';
 import CategoryChip from '../components/CategoryChip';
 import ConfirmDialog from '../components/ConfirmDialog';
 import ExpenseFormDialog from '../components/ExpenseFormDialog';
@@ -39,64 +38,34 @@ import { EmptyState, LoadingState, QueryError } from '../components/Feedback';
 import PageHeader from '../components/PageHeader';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { useDeleteExpenseMutation, useGetCategoriesQuery, useGetExpensesQuery } from '../store/api';
+import {
+  PAGE_SIZES,
+  amountRangeChanged,
+  categoryChanged,
+  dateRangeChanged,
+  filtersCleared,
+  pageChanged,
+  pageSizeChanged,
+  paymentMethodChanged,
+  searchChanged,
+  selectAdvancedFilterCount,
+  selectExpenseFilters,
+  selectExpenseQuery,
+  selectHasActiveFilters,
+  sortChanged,
+} from '../store/expenseFiltersSlice';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { CURRENCY, PAYMENT_METHODS, formatDate, formatMoney, paymentLabel } from '../utils/format';
-
-const PAGE_SIZES = [10, 25, 50];
-const SORT_FIELDS: ExpenseSortField[] = ['date', 'amount', 'title', 'createdAt'];
-const ADVANCED_FILTERS = ['startDate', 'endDate', 'minAmount', 'maxAmount'] as const;
-const ALL_FILTERS = ['search', 'category', 'paymentMethod', ...ADVANCED_FILTERS] as const;
-
-/** Reads the expense query from the URL so filters survive refreshes and can be shared. */
-function useExpenseQuery() {
-  const [params, setParams] = useSearchParams();
-
-  const query = useMemo<ExpenseQuery>(() => {
-    const num = (key: string) => {
-      const raw = params.get(key);
-      const value = raw === null || raw === '' ? NaN : Number(raw);
-      return Number.isFinite(value) ? value : undefined;
-    };
-    const sortBy = params.get('sortBy') as ExpenseSortField | null;
-    const limit = num('limit');
-    return {
-      search: params.get('search') || undefined,
-      category: params.get('category') || undefined,
-      paymentMethod: (params.get('paymentMethod') as PaymentMethod | null) || undefined,
-      startDate: params.get('startDate') || undefined,
-      endDate: params.get('endDate') || undefined,
-      minAmount: num('minAmount'),
-      maxAmount: num('maxAmount'),
-      sortBy: sortBy && SORT_FIELDS.includes(sortBy) ? sortBy : 'date',
-      order: params.get('order') === 'asc' ? 'asc' : 'desc',
-      page: Math.max(1, num('page') ?? 1),
-      limit: limit && PAGE_SIZES.includes(limit) ? limit : PAGE_SIZES[0],
-    };
-  }, [params]);
-
-  /** Updates some parameters. Changing anything but the page resets to page 1. */
-  const update = (changes: Record<string, string | number | undefined>) => {
-    setParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        for (const [key, value] of Object.entries(changes)) {
-          if (value === undefined || value === '') next.delete(key);
-          else next.set(key, String(value));
-        }
-        if (!('page' in changes)) next.delete('page');
-        return next;
-      },
-      { replace: true },
-    );
-  };
-
-  const clearFilters = () => update(Object.fromEntries(ALL_FILTERS.map((key) => [key, undefined])));
-
-  return { query, update, clearFilters };
-}
 
 export default function ExpensesPage() {
   const { enqueueSnackbar } = useSnackbar();
-  const { query, update, clearFilters } = useExpenseQuery();
+  const dispatch = useAppDispatch();
+  // Search, filters, sorting and pagination live in the expenseFilters Redux slice,
+  // so they are kept while the user moves between pages of the app.
+  const filters = useAppSelector(selectExpenseFilters);
+  const query = useAppSelector(selectExpenseQuery);
+  const advancedCount = useAppSelector(selectAdvancedFilterCount);
+  const hasFilters = useAppSelector(selectHasActiveFilters);
   const { data: categories = [] } = useGetCategoriesQuery();
   const { data, isLoading, isFetching, error, refetch } = useGetExpensesQuery(query);
   const [deleteExpense, { isLoading: deleting }] = useDeleteExpenseMutation();
@@ -105,32 +74,25 @@ export default function ExpensesPage() {
   const [editing, setEditing] = useState<Expense | null>(null);
   const [toDelete, setToDelete] = useState<Expense | null>(null);
 
-  // Search is typed locally and pushed to the URL once the user pauses.
-  const [search, setSearch] = useState(query.search ?? '');
+  // Search is typed locally and sent to Redux once the user pauses typing.
+  const [search, setSearch] = useState(filters.search);
   const debouncedSearch = useDebouncedValue(search.trim(), 400);
   useEffect(() => {
-    if (debouncedSearch !== (query.search ?? '')) update({ search: debouncedSearch });
-  }, [debouncedSearch]);
+    if (debouncedSearch !== filters.search) dispatch(searchChanged(debouncedSearch));
+  }, [debouncedSearch, filters.search, dispatch]);
 
-  const advancedCount = ADVANCED_FILTERS.filter((key) => query[key] !== undefined).length;
   const [showAdvanced, setShowAdvanced] = useState(advancedCount > 0);
-  const hasFilters = ALL_FILTERS.some((key) => query[key] !== undefined);
 
   // If a deletion empties the last page, step back to the previous one.
   useEffect(() => {
-    if (data && data.data.length === 0 && (query.page ?? 1) > 1 && (query.page ?? 1) > data.pagination.totalPages) {
-      update({ page: data.pagination.totalPages });
+    if (data && data.data.length === 0 && filters.page > 1 && filters.page > data.pagination.totalPages) {
+      dispatch(pageChanged(data.pagination.totalPages));
     }
-  }, [data, query.page]);
-
-  const handleSort = (field: ExpenseSortField) => {
-    const order: SortOrder = query.sortBy === field && query.order === 'desc' ? 'asc' : 'desc';
-    update({ sortBy: field, order });
-  };
+  }, [data, filters.page, dispatch]);
 
   const handleClear = () => {
     setSearch('');
-    clearFilters();
+    dispatch(filtersCleared());
   };
 
   async function confirmDelete() {
@@ -146,9 +108,9 @@ export default function ExpensesPage() {
 
   const sortHeader = (field: ExpenseSortField, label: string, align: 'left' | 'right' = 'left') => (
     <TableSortLabel
-      active={query.sortBy === field}
-      direction={query.sortBy === field ? query.order : 'desc'}
-      onClick={() => handleSort(field)}
+      active={filters.sortBy === field}
+      direction={filters.sortBy === field ? filters.order : 'desc'}
+      onClick={() => dispatch(sortChanged(field))}
       sx={align === 'right' ? { flexDirection: 'row-reverse' } : undefined}
     >
       {label}
@@ -199,8 +161,8 @@ export default function ExpensesPage() {
               select
               size="small"
               label="Category"
-              value={query.category ?? ''}
-              onChange={(e) => update({ category: e.target.value })}
+              value={filters.category}
+              onChange={(e) => dispatch(categoryChanged(e.target.value))}
             >
               <MenuItem value="">All categories</MenuItem>
               {categories.map((c) => (
@@ -215,8 +177,8 @@ export default function ExpensesPage() {
               select
               size="small"
               label="Payment method"
-              value={query.paymentMethod ?? ''}
-              onChange={(e) => update({ paymentMethod: e.target.value })}
+              value={filters.paymentMethod}
+              onChange={(e) => dispatch(paymentMethodChanged(e.target.value as PaymentMethod | ''))}
             >
               <MenuItem value="">All methods</MenuItem>
               {PAYMENT_METHODS.map((p) => (
@@ -252,9 +214,9 @@ export default function ExpensesPage() {
                 size="small"
                 type="date"
                 label="From"
-                value={query.startDate ?? ''}
-                onChange={(e) => update({ startDate: e.target.value })}
-                slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: query.endDate } }}
+                value={filters.startDate}
+                onChange={(e) => dispatch(dateRangeChanged({ startDate: e.target.value }))}
+                slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: filters.endDate || undefined } }}
               />
             </Grid>
             <Grid size={{ xs: 6, md: 3 }}>
@@ -262,16 +224,24 @@ export default function ExpensesPage() {
                 size="small"
                 type="date"
                 label="To"
-                value={query.endDate ?? ''}
-                onChange={(e) => update({ endDate: e.target.value })}
-                slotProps={{ inputLabel: { shrink: true }, htmlInput: { min: query.startDate } }}
+                value={filters.endDate}
+                onChange={(e) => dispatch(dateRangeChanged({ endDate: e.target.value }))}
+                slotProps={{ inputLabel: { shrink: true }, htmlInput: { min: filters.startDate || undefined } }}
               />
             </Grid>
             <Grid size={{ xs: 6, md: 3 }}>
-              <AmountFilter label="Min amount" value={query.minAmount} onCommit={(v) => update({ minAmount: v })} />
+              <AmountFilter
+                label="Min amount"
+                value={query.minAmount}
+                onCommit={(v) => dispatch(amountRangeChanged({ minAmount: v ?? null }))}
+              />
             </Grid>
             <Grid size={{ xs: 6, md: 3 }}>
-              <AmountFilter label="Max amount" value={query.maxAmount} onCommit={(v) => update({ maxAmount: v })} />
+              <AmountFilter
+                label="Max amount"
+                value={query.maxAmount}
+                onCommit={(v) => dispatch(amountRangeChanged({ maxAmount: v ?? null }))}
+              />
             </Grid>
           </Grid>
         </Collapse>
@@ -388,11 +358,11 @@ export default function ExpensesPage() {
             <TablePagination
               component="div"
               count={data.pagination.total}
-              page={Math.min((query.page ?? 1) - 1, data.pagination.totalPages - 1)}
-              rowsPerPage={query.limit ?? PAGE_SIZES[0]}
+              page={Math.min(filters.page - 1, data.pagination.totalPages - 1)}
+              rowsPerPage={filters.limit}
               rowsPerPageOptions={PAGE_SIZES}
-              onPageChange={(_e, page) => update({ page: page + 1 })}
-              onRowsPerPageChange={(e) => update({ limit: Number(e.target.value) })}
+              onPageChange={(_e, page) => dispatch(pageChanged(page + 1))}
+              onRowsPerPageChange={(e) => dispatch(pageSizeChanged(Number(e.target.value)))}
             />
           </>
         )}
