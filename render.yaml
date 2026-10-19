@@ -24,8 +24,6 @@ services:
         sync: false
       - key: ADMIN_PASSWORD
         sync: false
-      - key: SEED_DEMO_DATA # "true" adds demo users/expenses (with public passwords) to an empty database
-        value: "false"
 
   - type: web
     name: retain-web
@@ -43,5 +41,5 @@ services:
         sync: false
       - key: VITE_CURRENCY
         value: USD
-      - key: VITE_SHOW_DEMO_ACCOUNTS # set to "true" only if SEED_DEMO_DATA is "true"
-        value: "false"
+      - key: VITE_SHOW_DEMO_ACCOUNTS # "true" shows buttons that fill in the demo logins
+        value: "true"

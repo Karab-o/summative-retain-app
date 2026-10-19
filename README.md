@@ -142,7 +142,6 @@ Backend (`backend/.env`):
 | `JWT_EXPIRES_IN` | How long a login lasts, e.g. `7d` |
 | `CLIENT_URL` | Frontend URL(s) allowed by CORS, separated by commas |
 | `ADMIN_NAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Optional admin account created when the server starts |
-| `SEED_DEMO_DATA` | Set to `true` to add demo data when the database is empty |
 
 Frontend (`frontend/.env`):
 
@@ -195,4 +194,4 @@ I deployed the app on Render using `render.yaml`, with the database on MongoDB A
    - On `retain-web`: `VITE_API_URL` (your retain-api URL followed by `/api`).
 5. If you change `VITE_API_URL` later, redeploy `retain-web`, because the value is built into the frontend.
 
-To get the demo accounts on your deployment, set `SEED_DEMO_DATA=true` on the API or run `npm run seed` against your Atlas database. The demo passwords are public, so don't use them for real data.
+The API creates the demo accounts automatically every time it starts, if they don't exist yet. It never deletes or changes existing data. The demo passwords are public, so don't use them for real data.

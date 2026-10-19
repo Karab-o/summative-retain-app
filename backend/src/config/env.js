@@ -26,6 +26,4 @@ export const env = {
   adminName: process.env.ADMIN_NAME || 'Retain Admin',
   adminEmail: process.env.ADMIN_EMAIL || '',
   adminPassword: process.env.ADMIN_PASSWORD || '',
-  // Seed demo data automatically when the database is empty.
-  seedDemoData: process.env.SEED_DEMO_DATA === 'true',
 };
