@@ -1,71 +1,100 @@
-# Retain — Expense & Budget Manager
+# Retain - Expense & Budget Manager
 
-Retain is a full-stack web app for tracking personal expenses against a monthly budget. Users record what they spend, set a budget for each month, and get warned as they approach or exceed it. Administrators manage the shared expense categories and see platform-wide insights.
+I built Retain as a web app for keeping track of personal expenses and staying within a monthly budget. You log your expenses, set a budget for each month and get a warning when you are close to it or over it. Admins manage the expense categories and can see overall stats for the platform.
 
-- **Frontend:** React 19, TypeScript, Vite, Material UI, Redux Toolkit (with RTK Query), React Router, Recharts
-- **Backend:** Node.js, Express 5, MongoDB with Mongoose, JWT authentication, Zod validation
+## Live app
+
+- App: https://retain-web-52w2.onrender.com
+- API: https://retain-api-bfzi.onrender.com/api (health check: https://retain-api-bfzi.onrender.com/api/health)
+
+You can try it with these demo accounts:
+
+| Role  | Email            | Password  |
+|-------|------------------|-----------|
+| User  | demo@retain.app  | Demo@123  |
+| Admin | admin@retain.app | Admin@123 |
+
+You can also sign up with your own account. I deployed the backend on Render's free plan, so it goes to sleep when nobody is using it. If the app seems slow at first, give it up to a minute to wake up.
+
+## Tech stack
+
+Frontend: React 19, TypeScript, Vite, Material UI, Redux Toolkit and RTK Query, React Context, React Router, Recharts
+
+Backend: Node.js, Express 5, MongoDB with Mongoose, JWT, bcrypt, Zod
+
+Hosting: Render for the frontend and backend, MongoDB Atlas for the database
 
 ## Features
 
-### Users
-- Sign up and sign in with JWT-based authentication; the session survives page refreshes.
-- **Dashboard** for any month:
+### For users
+
+- You can sign up, sign in and sign out, and you stay signed in after refreshing the page.
+- The dashboard shows, for each month:
   - total spent, budget remaining, number of expenses and average expense
-  - budget progress bar, plus alerts when spending is approaching (80%+) or over the budget
-  - spending by category (donut chart), daily spending, and a 6-month trend
-  - the month's highest expense and the most recent expenses
-- **Expenses**:
-  - create, edit and delete expenses (title, amount, category, date, payment method, notes)
-  - search title and notes
+  - a budget progress bar, with a warning at 80% of the budget and an alert when you go over it
+  - charts for spending by category, daily spending and the last 6 months
+  - your biggest expense of the month and your latest expenses
+- On the expenses page you can:
+  - add, edit and delete expenses (title, amount, category, date, payment method and notes)
+  - search by title or notes
   - filter by category, payment method, date range and amount range
   - sort by date, title or amount, with pagination
-  - filters are kept in the URL, so they survive a refresh and can be bookmarked
-- **Budgets:** set, edit or remove a budget for any month, and see past months marked "on track", "approaching limit" or "over budget".
-- Light and dark mode, responsive layout for phones, tablets and desktops.
+- On the budgets page you can set, change or remove the budget for any month. Each month shows whether you are on track, close to the limit or over budget.
+- The app works on phones, tablets and desktops, and has a dark mode.
 
-### Administrators
-- **Insights:**
-  - registered users, total expenses, total value recorded, and expenses recorded this month
+### For admins
+
+- The insights page shows:
+  - total users, total expenses and total amount recorded
+  - expenses recorded this month
   - spending per category
   - the most and least used categories
-  - recent activity and newest members
-- **Categories:** create, rename, recolour and delete categories. Deleting a category moves its expenses to the default **Uncategorized** category, so no user data is lost. The default category itself can't be deleted or renamed.
+  - recent expenses and newest users
+- On the categories page you can create, rename, recolour and delete categories. When you delete a category, its expenses are moved to "Uncategorized" so no one loses data. The "Uncategorized" category itself can't be deleted or renamed.
 
 ### Security
-- Passwords are hashed with bcrypt and never returned by the API.
-- Every expense and budget query is scoped to the signed-in user; other users' records return `404`.
-- Admin routes are protected by role on the server, not just hidden in the UI.
-- Login and registration are rate-limited; requests are validated with Zod and pass through Helmet headers and a CORS allow-list.
+
+- I hash passwords with bcrypt, and the API never sends them back.
+- Users can only see and change their own expenses and budgets. If you request someone else's data, the API returns 404.
+- Admin endpoints check the user's role on the server, not only in the UI.
+- Login and sign-up are rate limited, and I validate all input with Zod.
+
+## How I managed state
+
+- I used React Context for authentication (session, login, logout, roles and protected routes): `frontend/src/context/AuthContext.tsx`. The route guards in `components/layout/RouteGuards.tsx` read from it.
+- I used a Redux Toolkit slice for expense search, filters, sorting and pagination: `frontend/src/store/expenseFiltersSlice.ts`.
+- I used RTK Query to fetch and cache data from the API: `frontend/src/store/api.ts`.
+- The light/dark theme setting is a small Redux slice: `frontend/src/store/uiSlice.ts`.
 
 ## Project structure
 
 ```
-react-summative/
-├── backend/            Express REST API
-│   └── src/
-│       ├── config/       environment + database connection
-│       ├── controllers/  route handlers (auth, expenses, budgets, categories, dashboard, admin)
-│       ├── middleware/   JWT auth, role checks, error handling
-│       ├── models/       Mongoose models (User, Expense, Budget, Category)
-│       ├── routes/       route table
-│       ├── services/     shared logic (spending summaries, seeding)
-│       └── scripts/      seed script
-├── frontend/           React single-page app
-│   └── src/
-│       ├── api/          axios client + API types
-│       ├── store/        Redux store, auth/ui slices, RTK Query endpoints
-│       ├── components/   layout, dialogs, charts, shared UI
-│       ├── pages/        Dashboard, Expenses, Budgets, admin pages, auth pages
-│       ├── theme/        Material UI theme (light/dark)
-│       └── utils/        formatting helpers
-└── render.yaml         one-click deployment to Render
+backend/
+  src/
+    config/        env variables and database connection
+    controllers/   auth, expenses, budgets, categories, dashboard, admin
+    middleware/    JWT auth, role checks, error handling
+    models/        User, Expense, Budget, Category
+    routes/        all API routes
+    services/      shared logic (monthly spending, seeding)
+    scripts/       seed script
+frontend/
+  src/
+    api/           axios client and TypeScript types for API responses
+    context/       AuthContext
+    store/         Redux store, slices and RTK Query endpoints
+    components/    layout, dialogs, charts and shared UI
+    pages/         dashboard, expenses, budgets, admin and auth pages
+    theme/         Material UI theme
+    utils/         formatting helpers
+render.yaml        Render deployment config
 ```
 
-## Running locally
+## Running it locally
 
-Requirements: **Node.js 20 or newer**.
+You need Node.js 20 or newer.
 
-### 1. Backend
+### Backend
 
 ```bash
 cd backend
@@ -74,11 +103,11 @@ cp .env.example .env
 npm run dev
 ```
 
-The API starts on <http://localhost:5000>.
+The API runs on http://localhost:5000.
 
-If `MONGO_URI` in `.env` is left empty, the backend starts a temporary **in-memory MongoDB** filled with demo data. The first start downloads MongoDB (~100 MB), and all data is lost when the server stops. To use MongoDB Atlas instead, paste its connection string into `MONGO_URI`.
+If you leave `MONGO_URI` empty in `.env`, the backend starts a temporary in-memory MongoDB with demo data (the same demo accounts as above). The first time, it downloads MongoDB, which is about 100 MB, and the data is lost when you stop the server. If you want your data to stay, put a MongoDB Atlas connection string in `MONGO_URI`.
 
-### 2. Frontend
+### Frontend
 
 In a second terminal:
 
@@ -88,92 +117,82 @@ npm install
 npm run dev
 ```
 
-Open <http://localhost:5173>. During development Vite forwards `/api` requests to the backend, so no extra configuration is needed.
+Then open http://localhost:5173. In development Vite forwards `/api` requests to the backend, so you don't need to set anything else up.
 
-### Demo accounts
+### Adding demo data to a real database
 
-These are created automatically with the in-memory database, or with `npm run seed`:
-
-| Role  | Email              | Password    |
-|-------|--------------------|-------------|
-| User  | `demo@retain.app`  | `Demo@123`  |
-| Admin | `admin@retain.app` | `Admin@123` |
-
-In development, the sign-in page has buttons that fill these in.
-
-### Seeding a real database
-
-With `MONGO_URI` set in `backend/.env`:
+Once `MONGO_URI` is set in `backend/.env`, run:
 
 ```bash
-npm run seed         # adds demo users, categories, budgets and expenses
-npm run seed:reset   # wipes the database first, then seeds
+npm run seed
 ```
+
+If you want to clear the database first, use `npm run seed:reset` instead.
 
 ## Environment variables
 
-**Backend (`backend/.env`)**
+Backend (`backend/.env`):
 
-| Variable | Description |
+| Variable | What it's for |
 |---|---|
-| `PORT` | Port to listen on (default `5000`; Render sets this automatically) |
+| `PORT` | Port for the API (default 5000, Render sets it automatically) |
 | `NODE_ENV` | `development` or `production` |
 | `MONGO_URI` | MongoDB connection string (required in production) |
-| `JWT_SECRET` | Secret used to sign tokens (required in production) |
-| `JWT_EXPIRES_IN` | Token lifetime, e.g. `7d` |
-| `CLIENT_URL` | Comma-separated frontend URLs allowed by CORS |
-| `ADMIN_NAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Optional admin account created on startup |
-| `SEED_DEMO_DATA` | `true` to add demo data when the database is empty |
+| `JWT_SECRET` | Secret for signing tokens (required in production) |
+| `JWT_EXPIRES_IN` | How long a login lasts, e.g. `7d` |
+| `CLIENT_URL` | Frontend URL(s) allowed by CORS, separated by commas |
+| `ADMIN_NAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Optional admin account created when the server starts |
+| `SEED_DEMO_DATA` | Set to `true` to add demo data when the database is empty |
 
-**Frontend (`frontend/.env`)**
+Frontend (`frontend/.env`):
 
-| Variable | Description |
+| Variable | What it's for |
 |---|---|
-| `VITE_API_URL` | API base URL including `/api` (leave empty in development) |
-| `VITE_CURRENCY` | Currency code for displaying amounts (default `USD`) |
-| `VITE_SHOW_DEMO_ACCOUNTS` | `true` to show the demo account buttons in production |
+| `VITE_API_URL` | API URL ending in `/api` (leave it empty in development) |
+| `VITE_CURRENCY` | Currency used to show amounts (default USD) |
+| `VITE_SHOW_DEMO_ACCOUNTS` | Set to `true` to show demo login buttons on the sign-in page |
 
-## API reference
+## API
 
-All endpoints are under `/api`. Endpoints marked 🔒 need an `Authorization: Bearer <token>` header; 🛡️ means admin only. Errors have the shape `{ "message": string, "details"?: [{ "field", "message" }] }`.
+Base URL: https://retain-api-bfzi.onrender.com/api
 
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/health` | Health check |
-| POST | `/auth/register` | Create a user account → `{ token, user }` |
-| POST | `/auth/login` | Sign in → `{ token, user }` |
-| GET | `/auth/me` 🔒 | Current user |
-| GET | `/dashboard?month=YYYY-MM` 🔒 | All dashboard data for a month |
-| GET | `/expenses` 🔒 | List own expenses. Query: `search`, `category`, `paymentMethod`, `startDate`, `endDate`, `minAmount`, `maxAmount`, `sortBy` (`date`/`amount`/`title`/`createdAt`), `order`, `page`, `limit` |
-| POST | `/expenses` 🔒 | Create an expense |
-| GET / PUT / DELETE | `/expenses/:id` 🔒 | Read, update or delete an own expense |
-| GET | `/budgets` 🔒 | Budget history with spending status |
-| GET / PUT / DELETE | `/budgets/:month` 🔒 | Read, set (`{ amount }`) or remove a month's budget |
-| GET | `/categories` 🔒 | All categories |
-| GET | `/categories/stats` 🔒🛡️ | Categories with usage counts and totals |
-| POST | `/categories` 🔒🛡️ | Create a category (`{ name, color?, description? }`) |
-| PUT / DELETE | `/categories/:id` 🔒🛡️ | Update or delete a category (expenses move to Uncategorized) |
-| GET | `/admin/insights` 🔒🛡️ | Platform-wide statistics |
+For endpoints marked User or Admin, you need to send an `Authorization: Bearer <token>` header. You get the token from the register or login endpoint. Errors come back as `{ "message": "...", "details": [...] }`.
 
-## Deployment (MongoDB Atlas + Render)
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| GET | `/health` | Public | Check that the API is running |
+| POST | `/auth/register` | Public | Create an account, returns `{ token, user }` |
+| POST | `/auth/login` | Public | Log in, returns `{ token, user }` |
+| GET | `/auth/me` | User | The logged-in user |
+| GET | `/dashboard?month=YYYY-MM` | User | Dashboard data for one month |
+| GET | `/expenses` | User | Your expenses (see query options below) |
+| POST | `/expenses` | User | Add an expense |
+| GET | `/expenses/:id` | User | One of your expenses |
+| PUT | `/expenses/:id` | User | Update one of your expenses |
+| DELETE | `/expenses/:id` | User | Delete one of your expenses |
+| GET | `/budgets` | User | Your budgets with how much you spent |
+| GET | `/budgets/:month` | User | Budget summary for one month |
+| PUT | `/budgets/:month` | User | Set the budget for a month, body `{ "amount": 1200 }` |
+| DELETE | `/budgets/:month` | User | Remove the budget for a month |
+| GET | `/categories` | User | All categories |
+| GET | `/categories/stats` | Admin | Categories with how often they are used |
+| POST | `/categories` | Admin | Create a category |
+| PUT | `/categories/:id` | Admin | Update a category |
+| DELETE | `/categories/:id` | Admin | Delete a category (its expenses move to Uncategorized) |
+| GET | `/admin/insights` | Admin | Stats for the whole platform |
 
-1. **Database:** create a free cluster on [MongoDB Atlas](https://www.mongodb.com/atlas). Then:
-   - add a database user
-   - under **Network Access**, allow `0.0.0.0/0` (Render's IP addresses change)
-   - copy the connection string
-2. **Push this project to GitHub.**
-3. **Render:** choose **New → Blueprint** and select the repository. `render.yaml` creates two services:
-   - `retain-api`, the Express API
-   - `retain-web`, the static React site
-4. Fill in the values Render asks for:
-   - `retain-api`:
-     - `MONGO_URI`: your Atlas connection string
-     - `CLIENT_URL`: the `retain-web` URL, e.g. `https://retain-web.onrender.com`
-     - `ADMIN_EMAIL` and `ADMIN_PASSWORD`: your administrator account
-   - `retain-web`:
-     - `VITE_API_URL`: the `retain-api` URL followed by `/api`, e.g. `https://retain-api.onrender.com/api`
-5. After the first deploy, redeploy `retain-web` if you changed `VITE_API_URL`, because Vite bakes it in at build time.
+You can use these query options with `GET /expenses`: `search`, `category`, `paymentMethod`, `startDate`, `endDate`, `minAmount`, `maxAmount`, `sortBy` (`date`, `amount`, `title` or `createdAt`), `order` (`asc` or `desc`), `page` and `limit`.
 
-To give reviewers ready-made data, set `SEED_DEMO_DATA=true` on the API and `VITE_SHOW_DEMO_ACCOUNTS=true` on the site, or run `npm run seed` locally against the Atlas database. Note that the demo passwords are public, so remove those accounts from any real deployment.
+## Deployment
 
-> Render's free plan puts the API to sleep after inactivity, so the first request after a while can take up to a minute.
+I deployed the app on Render using `render.yaml`, with the database on MongoDB Atlas. If you want to deploy your own copy:
+
+1. Create a free cluster on MongoDB Atlas and add a database user. In the IP access list, allow `0.0.0.0/0`, because Render's IP addresses change. Copy the connection string.
+2. Push the project to your own GitHub repository.
+3. On Render, go to New, then Blueprint, and pick your repository. This creates two services: `retain-api` (the backend) and `retain-web` (the frontend).
+4. Fill in the environment variables:
+   - On `retain-api`: `MONGO_URI` (your Atlas connection string), `CLIENT_URL` (your retain-web URL), and `ADMIN_EMAIL` and `ADMIN_PASSWORD` for your admin account.
+   - On `retain-web`: `VITE_API_URL` (your retain-api URL followed by `/api`).
+5. If you change `VITE_API_URL` later, redeploy `retain-web`, because the value is built into the frontend.
+
+To get the demo accounts on your deployment, set `SEED_DEMO_DATA=true` on the API or run `npm run seed` against your Atlas database. The demo passwords are public, so don't use them for real data.
