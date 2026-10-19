@@ -1,7 +1,6 @@
 import type { BaseQueryFn } from '@reduxjs/toolkit/query';
 import axios, { isAxiosError } from 'axios';
-import { sessionExpired } from '../store/authSlice';
-import type { RootState } from '../store';
+import { getAuthToken, notifyUnauthorized } from './session';
 
 /** Base URL of the API. In development Vite proxies "/api" to the local backend. */
 export const API_URL = (import.meta.env.VITE_API_URL || '/api').replace(/\/$/, '');
@@ -61,7 +60,7 @@ export interface RequestArgs {
 
 /** RTK Query base query built on axios that attaches the JWT and handles expired sessions. */
 export const axiosBaseQuery: BaseQueryFn<RequestArgs, unknown, ApiError> = async (args, api) => {
-  const token = (api.getState() as RootState).auth.token;
+  const token = getAuthToken();
   try {
     const response = await http.request({
       url: args.url,
@@ -75,7 +74,7 @@ export const axiosBaseQuery: BaseQueryFn<RequestArgs, unknown, ApiError> = async
   } catch (error) {
     const apiError = toApiError(error);
     // A 401 on an authenticated request means the token is no longer valid.
-    if (apiError.status === 401 && token) api.dispatch(sessionExpired());
+    if (apiError.status === 401 && token) notifyUnauthorized(token);
     return { error: apiError };
   }
 };

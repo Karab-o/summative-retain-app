@@ -3,5 +3,3 @@ import type { AppDispatch, RootState } from './index';
 
 export const useAppDispatch = useDispatch.withTypes<AppDispatch>();
 export const useAppSelector = useSelector.withTypes<RootState>();
-
-export const useCurrentUser = () => useAppSelector((state) => state.auth.user);
